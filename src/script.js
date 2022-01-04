@@ -5,6 +5,8 @@ import {GLTFLoader} from "three/examples/jsm/loaders/GLTFLoader";
 import {DRACOLoader} from "three/examples/jsm/loaders/DRACOLoader";
 import * as dat from 'dat.gui'
 
+let mixer, idleAction;
+
 // Debug
 const gui = new dat.GUI()
 
@@ -27,6 +29,16 @@ const sphere = new THREE.Mesh(geometry, material)
 sphere.position.y = 1
 scene.add(sphere)
 console.log(sphere)
+
+const axesHelper = new THREE.AxesHelper( 5 );
+scene.add( axesHelper );
+
+const size = 51;
+const divisions = 20;
+
+const gridHelper = new THREE.GridHelper( size, divisions );
+gridHelper.position.y = 4;
+scene.add( gridHelper );
 
 
 /**
@@ -52,10 +64,14 @@ const gltfLoader = new GLTFLoader();
 gltfLoader.setDRACOLoader(dracoLoader)
 
 gltfLoader.load(
-    'map.glb',
+    'map2.0.glb',
     (gltf) => {
-
+        mixer = new THREE.AnimationMixer( gltf.scene );
         scene.add(gltf.scene)
+        idleAction = mixer.clipAction( gltf.animations[ 0 ] )
+        console.log(gltf.animations)
+        idleAction.play();
+        gltf.scene.position.set(8,0,-6);
     }
 )
 
@@ -103,7 +119,7 @@ window.addEventListener('resize', () => {
  */
 // Base camera
 const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
-camera.position.set(2, 2, 2)
+camera.position.set(33, 33, 33)
 scene.add(camera)
 
 // Controls
@@ -138,7 +154,10 @@ const tick = () => {
     sphere.rotation.y = .5 * elapsedTime
 
     // Update Orbital Controls
-    // controls.update()
+    controls.update()
+    let delta = clock.getDelta();
+
+    if ( mixer ) mixer.update( delta );
 
     // Render
     renderer.render(scene, camera)
