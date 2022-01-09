@@ -6,7 +6,6 @@ import {DRACOLoader} from "three/examples/jsm/loaders/DRACOLoader";
 import * as dat from 'dat.gui'
 import {FontLoader, TextGeometry} from "three";
 
-let mixer, idleAction;
 
 // Debug
 const gui = new dat.GUI()
@@ -27,14 +26,14 @@ const scene = new THREE.Scene()
 
 
 const axesHelper = new THREE.AxesHelper( 10 );
-axesHelper.translateY(4);
+axesHelper.translateY(5);
 scene.add( axesHelper );
 
 const size = 50;
 const divisions = 20;
 
 const gridHelper = new THREE.GridHelper( size, divisions );
-gridHelper.position.y = 4;
+gridHelper.position.y = 5;
 scene.add( gridHelper );
 
 const gridGeometry = new THREE.PlaneGeometry(1,1);
@@ -57,15 +56,13 @@ const redGridMaterial = new THREE.MeshBasicMaterial(
     }
 )
 const newOneGrid = new THREE.Mesh(gridGeometry, redGridMaterial);
-newOneGrid.translateY(4)
+newOneGrid.translateY(5)
 newOneGrid.translateZ(1.25);
 newOneGrid.translateX(1.25);
 newOneGrid.scale.set(2.5,2.5,1);
 newOneGrid.rotation.x = Math.PI * 0.5;
 scene.add(newOneGrid);
 
-let x = -2;
-let y = -3;
 
 function changeCoordinateX(x) {
     return (x*2.5 - 10*2.5 + 1.25);
@@ -75,7 +72,7 @@ function changeCoordinateY(y) {
     return (-y*2.5 + 10*2.5 -1.25);
 }
 
-oneGrid.translateY(4);
+oneGrid.translateY(5);
 oneGrid.translateX(changeCoordinateY(10))
 oneGrid.translateZ(changeCoordinateX(10))
 oneGrid.scale.set(2.5,2.5,1);
@@ -130,24 +127,47 @@ loader.load( 'martines-italic.json', function ( font ) {
  floor.rotation.x = - Math.PI * 0.5
  scene.add(floor)*/
 
-
+var clock = new THREE.Clock()
 // loader
 const dracoLoader = new DRACOLoader()
 dracoLoader.setDecoderPath('draco/')
 const gltfLoader = new GLTFLoader();
 gltfLoader.setDRACOLoader(dracoLoader)
-
+var mixer = null;
 gltfLoader.load(
-    'map2.0.glb',
-    (gltf) => {
-        mixer = new THREE.AnimationMixer( gltf.scene );
-        scene.add(gltf.scene)
-        idleAction = mixer.clipAction( gltf.animations[ 0 ] )
-        console.log(gltf.animations)
-        idleAction.play();
-        gltf.scene.position.set(8,0,-6);
-    }
-)
+    'map2.2.glb', function (gltf) {
+        const oceanMesh = gltf.scene.children.find(child => child.name === 'Ocean')
+
+        oceanMesh.material.transparent=true;
+        oceanMesh.material.opacity=0.5;
+        mixer = new THREE.AnimationMixer(gltf.scene);
+
+        gltf.animations.forEach((clip) => {
+            mixer
+                .clipAction(clip)
+                .play();
+        });
+
+        scene.add(gltf.scene);
+
+        gltf.scene.position.set(8, 0, -6);
+    });
+
+var box;
+var pivot =new THREE.Group();
+gltfLoader.load(
+    'ship1.glb', function (ship) {
+        ship.scene.position.y =-4.6;
+        scene.add(ship.scene);
+        box =new THREE.Box3().setFromObject(ship.scene);
+        box.center(ship.scene.position);
+        ship.scene.position.multiplyScalar(-1);
+        scene.add(pivot);
+        pivot.add(ship.scene);
+
+
+    })
+
 
 
 // Lights
@@ -193,13 +213,14 @@ window.addEventListener('resize', () => {
  */
 // Base camera
 const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
-camera.position.set(33, 33, 33)
+camera.position.set( 0, 8.5, -10)
 scene.add(camera)
+pivot.add(camera)
 
 // Controls
-const controls = new OrbitControls(camera, canvas)
-controls.target.set(0, 0.75, 0)
-controls.enableDamping = true
+//const controls = new OrbitControls(camera, canvas)
+//controls.target.set(0, 0.75, 0)
+//controls.enableDamping = true
 
 // Controls
 // const controls = new OrbitControls(camera, canvas)
@@ -214,29 +235,80 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setSize(sizes.width, sizes.height)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
+/*
+ Keyboard Controls
+ */
+var keys = {
+    a: false,
+    s: false,
+    d: false,
+    w: false
+};
+
+document.body.addEventListener( 'keydown', function(e) {
+
+    const key = e.code.replace('Key', '').toLowerCase();
+    if ( keys[ key ] !== undefined )
+        keys[ key ] = true;
+
+});
+document.body.addEventListener( 'keyup', function(e) {
+
+    const key = e.code.replace('Key', '').toLowerCase();
+    if ( keys[ key ] !== undefined )
+        keys[ key ] = false;
+
+});
+
 /**
  * Animate
  */
 
-const clock = new THREE.Clock()
-
+var speed,velocity;
 const tick = () => {
+    requestAnimationFrame(tick)
+    let delta = clock.getDelta();
+    if (mixer)
+        mixer.update(delta)
+    speed = 0.0;
+
+    if ( keys.w ){
+        pivot.translateZ(0.1);
+
+    }
+    else if ( keys.s ){
+        pivot.translateZ(-0.1);
+
+    }
+
+    if ( keys.a ){
+        pivot.rotateY(0.01);
+
+    }
+
+    else if ( keys.d ){
+        pivot.rotateY(-0.01);
+    }
+
 
     const elapsedTime = clock.getElapsedTime()
 
     // Update objects
 
     // Update Orbital Controls
-    controls.update()
-    let delta = clock.getDelta();
+    // controls.update()
+    clock=new THREE.Clock();
+    delta = clock.getDelta();
 
-    if ( mixer ) mixer.update( delta );
-
+    if (mixer != null) {
+        mixer.update(delta);
+    }
     // Render
     renderer.render(scene, camera)
+    camera.lookAt( pivot.position)
 
     // Call tick again on the next frame
-    window.requestAnimationFrame(tick)
+
 }
 
 tick()
