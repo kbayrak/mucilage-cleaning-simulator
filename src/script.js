@@ -36,33 +36,57 @@ const gridHelper = new THREE.GridHelper( size, divisions );
 gridHelper.position.y = 5;
 scene.add( gridHelper );
 
-const gridGeometry = new THREE.PlaneGeometry(1,1);
-const gridMaterial = new THREE.MeshBasicMaterial(
-    {
-        color: 0x00ff00,
-        side: THREE.DoubleSide,
-        opacity: 0.5,
-        transparent: true
-    }
-);
-const oneGrid = new THREE.Mesh(gridGeometry, gridMaterial);
+// const gridMaterial = new THREE.MeshBasicMaterial(
+//     {
+//         color: 0x00ff00,
+//         side: THREE.DoubleSide,
+//         opacity: 0.5,
+//         transparent: true
+//     }
+// );
+// const oneGrid = new THREE.Mesh(gridGeometry, gridMaterial);
+//
+// const redGridMaterial = new THREE.MeshBasicMaterial(
+//     {
+//         color: 0xff0000,
+//         side: THREE.DoubleSide,
+//         opacity: 0.5,
+//         transparent: true
+//     }
+// )
+// const newOneGrid = new THREE.Mesh(gridGeometry, redGridMaterial);
+// newOneGrid.translateY(5)
+// newOneGrid.translateZ(1.25);
+// newOneGrid.translateX(1.25);
+// newOneGrid.rotation.x = Math.PI * 0.5;
+// scene.add(newOneGrid);
+//
+// oneGrid.translateY(5);
+// oneGrid.translateX(game2worldCoordX(11  ))
+// oneGrid.translateZ(game2worldCoordZ(11))
+// oneGrid.rotation.x = - Math.PI * 0.5;
+// scene.add(oneGrid);
 
-const redGridMaterial = new THREE.MeshBasicMaterial(
-    {
-        color: 0xff0000,
-        side: THREE.DoubleSide,
-        opacity: 0.5,
-        transparent: true
-    }
-)
-const newOneGrid = new THREE.Mesh(gridGeometry, redGridMaterial);
-newOneGrid.translateY(5)
-newOneGrid.translateZ(1.25);
-newOneGrid.translateX(1.25);
-newOneGrid.scale.set(2.5,2.5,1);
-newOneGrid.rotation.x = Math.PI * 0.5;
-scene.add(newOneGrid);
+const tileGeometry = new THREE.PlaneGeometry(2.5,2.5);
+function addTile(x, z, color) {
+    const tileMaterial = new THREE.MeshBasicMaterial(
+        {
+            color: color,
+            side: THREE.DoubleSide,
+            opacity: 0.5,
+            transparent: true
+        }
+    )
+    const newTile = new THREE.Mesh(tileGeometry, tileMaterial);
+    newTile.translateX(game2worldCoordX(x));
+    newTile.translateZ(game2worldCoordZ(z));
+    newTile.translateY(5);
+    newTile.rotation.x = - Math.PI * 0.5;
+    scene.add(newTile);
+}
 
+addTile(3,5, 0xff00ff);
+addTile(3,6, 0x445500)
 
 function game2worldCoordZ(z) {
     return (z*2.5 - 10*2.5 + 1.25);
@@ -95,14 +119,6 @@ function getWorldCenter(z) {
 
     }
 }
-
-oneGrid.translateY(5);
-oneGrid.translateX(game2worldCoordX(11  ))
-oneGrid.translateZ(game2worldCoordZ(11))
-oneGrid.scale.set(2.5,2.5,1);
-
-oneGrid.rotation.x = - Math.PI * 0.5;
-scene.add(oneGrid);
 
 // Font
 const loader = new FontLoader();
@@ -364,7 +380,12 @@ var maze = [
 ];
 var nodeStart="4,6";
 var nodeEnd="8,13";
-function bidirectionalSearch(startKey, targetKey) {
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function bidirectionalSearch(startKey, targetKey) {
     const startVisited = {};
     const startQueue = [[startKey, null]];
     startVisited[startKey] = null;
@@ -384,6 +405,10 @@ function bidirectionalSearch(startKey, targetKey) {
         const currKeyAndDir = currQueue.shift();
         const currKey = currKeyAndDir[0];
         const dir = currKeyAndDir[1];
+        const [row, col] = keyToPosition(currKey);
+
+        addTile(row,col, 0x00ff00);
+        await sleep(50);
 
         const neighbors = getNeighbors(currKey);
         for (let neighbor in neighbors) {
@@ -415,7 +440,13 @@ function bidirectionalSearch(startKey, targetKey) {
             }
             //console.log(startPath)
             //console.log(endPath)
-            return startPath.concat(endPath);
+            let correctPath = startPath.concat(endPath);
+            for (let item of correctPath) {
+                const [x,z] = keyToPosition(item[0]);
+                addTile(x,z, 0x0000ff);
+                await sleep(50);
+            }
+            return correctPath;
         }
         currVisited = currVisited === startVisited ? endVisited : startVisited;
         currQueue = currQueue === startQueue ? endQueue : startQueue;
