@@ -26,7 +26,7 @@ const scene = new THREE.Scene()
 
 
 const axesHelper = new THREE.AxesHelper( 10 );
-axesHelper.translateY(5);
+axesHelper.translateY(6);
 scene.add( axesHelper );
 
 const size = 50;
@@ -64,17 +64,41 @@ newOneGrid.rotation.x = Math.PI * 0.5;
 scene.add(newOneGrid);
 
 
-function changeCoordinateX(x) {
-    return (x*2.5 - 10*2.5 + 1.25);
+function game2worldCoordZ(z) {
+    return (z*2.5 - 10*2.5 + 1.25);
+}
+function game2worldCoordX(x) {
+    return (-x*2.5 + 10*2.5 -1.25);
+}
+function world2gameCoordZ(z) {
+    return ((z + 10*2.5 - 1.25) / 2.5);
+}
+function world2gameCoordX(x) {
+    return ((x - 10*2.5 + 1.25) / -2.5);
 }
 
-function changeCoordinateY(y) {
-    return (-y*2.5 + 10*2.5 -1.25);
+function getWorldCenter(z) {
+    let kalan = z % 5;
+    let bolum = Math.floor(z/5);
+    if (z > 0) {
+        if (kalan >= 2.5) {
+            return (bolum + 1) * 5 - 1.25;
+        } else {
+            return (bolum * 5) + 1.25;
+        }
+    } else {
+        if (kalan <= -2.5) {
+            return (bolum) * 5 + 1.25;
+        } else {
+            return (bolum + 1) * 5 - 1.25;
+        }
+
+    }
 }
 
 oneGrid.translateY(5);
-oneGrid.translateX(changeCoordinateY(10))
-oneGrid.translateZ(changeCoordinateX(10))
+oneGrid.translateX(game2worldCoordX(11  ))
+oneGrid.translateZ(game2worldCoordZ(11))
 oneGrid.scale.set(2.5,2.5,1);
 
 oneGrid.rotation.x = - Math.PI * 0.5;
@@ -162,7 +186,10 @@ gltfLoader.load(
         box =new THREE.Box3().setFromObject(ship.scene);
         box.center(ship.scene.position);
         ship.scene.position.multiplyScalar(-1);
+        const axesHelper = new THREE.AxesHelper( 1 );
+        axesHelper.translateY(5);
         scene.add(pivot);
+        pivot.add(axesHelper);
         pivot.add(ship.scene);
 
 
@@ -213,7 +240,7 @@ window.addEventListener('resize', () => {
  */
 // Base camera
 const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
-camera.position.set( 0, 8.5, -10)
+camera.position.set( 0, 18.5, -1)
 scene.add(camera)
 pivot.add(camera)
 
@@ -444,6 +471,12 @@ function control() {
         switch (event.key) {
             case "l":
                 console.log(pivot.position);
+                console.log(world2gameCoordX(pivot.position.x), world2gameCoordZ(pivot.position.z));
+                //console.log(game2worldCoordX(11), game2worldCoordZ(11))
+                //console.log(world2gameCoordX(-3.75), world2gameCoordZ(3.75))
+                console.log("getWorldCenter z:",getWorldCenter(pivot.position.z),"x:", getWorldCenter(pivot.position.x));
+                console.log("world2gameCoordZ z:", world2gameCoordZ(getWorldCenter(pivot.position.z)),
+                            "world2gameCoordX x:", world2gameCoordX(getWorldCenter(pivot.position.x)));
                 break;
 
             default:
