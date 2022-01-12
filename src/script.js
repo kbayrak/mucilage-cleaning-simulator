@@ -4,11 +4,7 @@ import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
 import {GLTFLoader} from "three/examples/jsm/loaders/GLTFLoader";
 import {DRACOLoader} from "three/examples/jsm/loaders/DRACOLoader";
 import * as dat from 'dat.gui'
-import {FontLoader, TextGeometry} from "three";
-
-
-// Debug
-const gui = new dat.GUI()
+import {FontLoader, Group, TextGeometry, Vector3} from "three";
 
 // Canvas
 const canvas = document.querySelector('canvas.webgl')
@@ -19,8 +15,6 @@ const scene = new THREE.Scene()
 // Objects
 
 // Materials
-
-
 
 // Mesh
 
@@ -36,43 +30,14 @@ const gridHelper = new THREE.GridHelper( size, divisions );
 gridHelper.position.y = 5;
 scene.add( gridHelper );
 
-// const gridMaterial = new THREE.MeshBasicMaterial(
-//     {
-//         color: 0x00ff00,
-//         side: THREE.DoubleSide,
-//         opacity: 0.5,
-//         transparent: true
-//     }
-// );
-// const oneGrid = new THREE.Mesh(gridGeometry, gridMaterial);
-//
-// const redGridMaterial = new THREE.MeshBasicMaterial(
-//     {
-//         color: 0xff0000,
-//         side: THREE.DoubleSide,
-//         opacity: 0.5,
-//         transparent: true
-//     }
-// )
-// const newOneGrid = new THREE.Mesh(gridGeometry, redGridMaterial);
-// newOneGrid.translateY(5)
-// newOneGrid.translateZ(1.25);
-// newOneGrid.translateX(1.25);
-// newOneGrid.rotation.x = Math.PI * 0.5;
-// scene.add(newOneGrid);
-//
-// oneGrid.translateY(5);
-// oneGrid.translateX(game2worldCoordX(11  ))
-// oneGrid.translateZ(game2worldCoordZ(11))
-// oneGrid.rotation.x = - Math.PI * 0.5;
-// scene.add(oneGrid);
-
+var tiles=[];
 const tileGeometry = new THREE.PlaneGeometry(2.5,2.5);
-function addTile(x, z, color) {
+function addTile(x, z, y, color) {
     const tileMaterial = new THREE.MeshBasicMaterial(
         {
             color: color,
             side: THREE.DoubleSide,
+            polygonOffset: true,
             opacity: 0.5,
             transparent: true
         }
@@ -80,13 +45,30 @@ function addTile(x, z, color) {
     const newTile = new THREE.Mesh(tileGeometry, tileMaterial);
     newTile.translateX(game2worldCoordX(x));
     newTile.translateZ(game2worldCoordZ(z));
-    newTile.translateY(5);
+    newTile.translateY(y);
     newTile.rotation.x = - Math.PI * 0.5;
+    newTile.scale.set(0.1,0.1,0.1);
     scene.add(newTile);
+    tiles.push(newTile)
+    let idTile = requestAnimationFrame(animateTile);
+    let scaleSize = 0.1;
+    function animateTile(){
+        if (scaleSize>=1.0){
+            this.cancelAnimationFrame(idTile);
+        }
+        requestAnimationFrame(animateTile);
+        newTile.scale.set(scaleSize,scaleSize,scaleSize);
+        scaleSize+=0.01;
+    }
 }
-
-addTile(3,5, 0xff00ff);
-addTile(3,6, 0x445500)
+function clearTiles(){
+    for (let tile of tiles ){
+        scene.remove(tile);
+        tile.geometry.dispose();
+        tile.material.dispose();
+        tile = undefined;
+    }
+}
 
 function game2worldCoordZ(z) {
     return (z*2.5 - 10*2.5 + 1.25);
@@ -144,28 +126,11 @@ loader.load( 'martines-italic.json', function ( font ) {
         flatShading: THREE.FlatShading
     });
     const text = new THREE.Mesh(mucilageText, textM);
-    text.translateY(5);
+    text.translateY(7);
+    text.translateZ(25)
     scene.add(text);
 
 } );
-
-
-
-
-/**
- * Floor
-
- const floor = new THREE.Mesh(
- new THREE.PlaneBufferGeometry(25, 25),
- new THREE.MeshStandardMaterial({
-        color: '#1c5cf1',
-        metalness: 0,
-        roughness: 0.5
-    })
- )
- floor.receiveShadow = true
- floor.rotation.x = - Math.PI * 0.5
- scene.add(floor)*/
 
 var clock = new THREE.Clock()
 // loader
@@ -174,14 +139,17 @@ dracoLoader.setDecoderPath('draco/')
 const gltfLoader = new GLTFLoader();
 gltfLoader.setDRACOLoader(dracoLoader)
 var mixer = null;
+var mixer1=null;
 gltfLoader.load(
     'map2.2.glb', function (gltf) {
-        const oceanMesh = gltf.scene.children.find(child => child.name === 'Ocean')
-
+        const oceanMesh = gltf.scene.children.find(child => child.name === 'Ocean');
         oceanMesh.material.transparent=true;
-        oceanMesh.material.opacity=0.5;
-        mixer = new THREE.AnimationMixer(gltf.scene);
+        oceanMesh.material.opacity=0.7;
 
+        const bottomMesh = gltf.scene.children.find(child => child.name === 'BottomOfMap');
+        bottomMesh.receiveShadow = true;
+
+        mixer = new THREE.AnimationMixer(gltf.scene);
         gltf.animations.forEach((clip) => {
             mixer
                 .clipAction(clip)
@@ -193,6 +161,22 @@ gltfLoader.load(
         gltf.scene.position.set(8, 0, -6);
     });
 
+var fishGroup = new Group;
+gltfLoader.load(
+    'fish1.glb', function (fish1) {
+        mixer1 = new THREE.AnimationMixer(fish1.scene);
+        fish1.scene.scale.set(1.5,1.5,1.5);
+        fish1.scene.position.set(4, 2, -2);
+        fish1.animations.forEach((clip) => {
+            mixer1
+                .clipAction(clip)
+                .play();
+        });
+        fishGroup.add(fish1.scene);
+        scene.add(fishGroup);
+
+    });
+
 var box;
 var pivot =new THREE.Group();
 gltfLoader.load(
@@ -200,7 +184,7 @@ gltfLoader.load(
         ship.scene.position.y =-4.6;
         scene.add(ship.scene);
         box =new THREE.Box3().setFromObject(ship.scene);
-        box.center(ship.scene.position);
+        box.getCenter(ship.scene.position);
         ship.scene.position.multiplyScalar(-1);
         const axesHelper = new THREE.AxesHelper( 1 );
         axesHelper.translateY(5);
@@ -212,6 +196,33 @@ gltfLoader.load(
     })
 
 
+gltfLoader.load(
+    "rock_1x2_1.glb", function (rock){
+
+        rock.scene.position.set(game2worldCoordX(6),4.6,(game2worldCoordZ(6)+game2worldCoordZ(7))/2);
+
+        rock.scene.scale.set(0.7,0.8,0.7);
+        scene.add(rock.scene);
+    }
+)
+gltfLoader.load(
+    "kizkulesi.glb", function (kizK){
+
+        kizK.scene.position.set(game2worldCoordX(8),4.5,(game2worldCoordZ(10)+game2worldCoordZ(11))/2);
+
+        kizK.scene.scale.set(0.1,0.15,0.1);
+        scene.add(kizK.scene);
+    }
+)
+
+gltfLoader.load(
+    "musilage.glb", function (musilage) {
+
+        musilage.scene.position.set(game2worldCoordZ(5), 4.1, game2worldCoordZ(9));
+        musilage.scene.scale.set(1, 1,1);
+        scene.add(musilage.scene);
+    }
+)
 
 // Lights
 
@@ -255,25 +266,38 @@ window.addEventListener('resize', () => {
  * Camera
  */
 // Base camera
-const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
-camera.position.set( 0, 18.5, -1)
+const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100);
+let cameraPos = new Vector3(0,8.5,-9);
+camera.position.set(cameraPos.x,cameraPos.y,cameraPos.z);
+//camera.position.set( 0, 18.5, -5)
 scene.add(camera)
 pivot.add(camera)
+let cameraStatus = 0;
+
+function camChange(camMode) {
+    if (camMode === 1) {
+        cameraStatus = 1;
+        pivot.remove(camera);
+        scene.add(camera);
+    } else if (camMode === 0) {
+        cameraStatus = 0;
+        scene.remove(camera);
+        pivot.add(camera);
+    }
+
+}
 
 // Controls
-//const controls = new OrbitControls(camera, canvas)
-//controls.target.set(0, 0.75, 0)
-//controls.enableDamping = true
-
-// Controls
-// const controls = new OrbitControls(camera, canvas)
-// controls.enableDamping = true
+const controls = new OrbitControls(camera, canvas)
+controls.enableDamping = true
+controls.enabled = false;
 
 /**
  * Renderer
  */
 const renderer = new THREE.WebGLRenderer({
-    canvas: canvas
+    canvas: canvas,
+    logarithmicDepthBuffer: true
 })
 renderer.setSize(sizes.width, sizes.height)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -307,12 +331,15 @@ document.body.addEventListener( 'keyup', function(e) {
  * Animate
  */
 
-var speed,velocity;
+var speed;
 const tick = () => {
     requestAnimationFrame(tick)
     let delta = clock.getDelta();
     if (mixer)
         mixer.update(delta)
+    if (mixer1)
+        mixer1.update(delta)
+
     speed = 0.0;
 
     if ( keys.w ){
@@ -325,33 +352,60 @@ const tick = () => {
     }
 
     if ( keys.a ){
-        pivot.rotateY(0.01);
+        pivot.rotateY(0.02);
 
     }
 
     else if ( keys.d ){
-        pivot.rotateY(-0.01);
+        pivot.rotateY(-0.02);
     }
 
-
-    const elapsedTime = clock.getElapsedTime()
-
-    // Update objects
-
-    // Update Orbital Controls
-    // controls.update()
-    clock=new THREE.Clock();
-    delta = clock.getDelta();
-
-    if (mixer != null) {
-        mixer.update(delta);
-    }
     // Render
-    renderer.render(scene, camera)
-    camera.lookAt( pivot.position)
+    // if (controls.enabled === false) {
+    //     camera.lookAt( pivot.position);
+    // }
+    let copyPivot;
 
+    if (cameraStatus === 0 )
+        if (controls.enabled === false) {
+            camera.lookAt(pivot.position);
+        }
+    else if (cameraStatus === 1) {
+            if (controls.enabled === false) {
+                camera.lookAt(0,0,0);
+            }
+        }
     // Call tick again on the next frame
+    if (cameraStatus === 1) {
+        let yDelta = 45 - camera.position.y;
+        let zDelta = 0 - camera.position.z;
+        let xDelta = 0 - camera.position.x;
 
+        if (camera.position.y < 44.9) {
+            if (controls.enabled === false) {
+                camera.position.y += yDelta / 100;
+                camera.position.z += zDelta / 100;
+                camera.position.x += xDelta / 100;
+                camera.lookAt(0,0,0);
+            }
+        }
+    }
+    else if(cameraStatus===0){
+        let yDelta = cameraPos.y - camera.position.y;
+        let zDelta = cameraPos.z - camera.position.z;
+        let xDelta = cameraPos.x - camera.position.x;
+        if (camera.position.y>cameraPos.y+0.1){
+            if (controls.enabled === false) {
+                camera.position.y += yDelta / 100;
+                camera.position.z += zDelta / 100;
+                camera.position.x += xDelta / 100;
+            }
+        }
+    }
+    let randomRotate = Math.random()*0.1;
+    fishGroup.rotateY(Math.PI/180*randomRotate);
+    fishGroup.translateX(-0.005)
+    renderer.render(scene, camera)
 }
 
 tick()
@@ -378,7 +432,9 @@ var maze = [
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1],
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 ];
-var nodeStart="4,6";
+
+
+var nodeStart= world2gameCoordZ(getWorldCenter(pivot.position.z)).toString() + "," + world2gameCoordX(getWorldCenter(pivot.position.x)).toString();
 var nodeEnd="8,13";
 
 function sleep(ms) {
@@ -402,12 +458,13 @@ async function bidirectionalSearch(startKey, targetKey) {
     let currParents = startParents;
 
     while (currQueue.length > 0) {
+
         const currKeyAndDir = currQueue.shift();
         const currKey = currKeyAndDir[0];
         const dir = currKeyAndDir[1];
         const [row, col] = keyToPosition(currKey);
 
-        addTile(row,col, 0x00ff00);
+        addTile(row,col,5, 0x00ff00);
         await sleep(50);
 
         const neighbors = getNeighbors(currKey);
@@ -440,10 +497,12 @@ async function bidirectionalSearch(startKey, targetKey) {
             }
             //console.log(startPath)
             //console.log(endPath)
+            //clearTiles();
             let correctPath = startPath.concat(endPath);
+            correctPath.pop();
             for (let item of correctPath) {
                 const [x,z] = keyToPosition(item[0]);
-                addTile(x,z, 0x0000ff);
+                addTile(x,z,5.01, 0x0000ff);
                 await sleep(50);
             }
             return correctPath;
@@ -491,8 +550,7 @@ function keyToPosition(key) {
     return key.split(',').map(Number);
 }
 
-var correctPath = bidirectionalSearch(nodeStart,nodeEnd);
-console.log(correctPath);
+//var correctPath = bidirectionalSearch(nodeStart,nodeEnd);
 
 function control() {
     window.addEventListener("keydown", function (event) {
@@ -503,13 +561,25 @@ function control() {
             case "l":
                 console.log(pivot.position);
                 console.log(world2gameCoordX(pivot.position.x), world2gameCoordZ(pivot.position.z));
-                //console.log(game2worldCoordX(11), game2worldCoordZ(11))
-                //console.log(world2gameCoordX(-3.75), world2gameCoordZ(3.75))
                 console.log("getWorldCenter z:",getWorldCenter(pivot.position.z),"x:", getWorldCenter(pivot.position.x));
                 console.log("world2gameCoordZ z:", world2gameCoordZ(getWorldCenter(pivot.position.z)),
-                            "world2gameCoordX x:", world2gameCoordX(getWorldCenter(pivot.position.x)));
+                    "world2gameCoordX x:", world2gameCoordX(getWorldCenter(pivot.position.x)));
+                console.log("nodeStart:", nodeStart);
+                console.log()
                 break;
-
+            case " ":
+                clearTiles();
+                nodeStart = world2gameCoordX(getWorldCenter(pivot.position.x)).toString() + "," + world2gameCoordZ(getWorldCenter(pivot.position.z)).toString();
+                bidirectionalSearch(nodeStart,nodeEnd)
+                break;
+            case "c":
+                if (cameraStatus === 0)
+                    camChange(1);
+                else if (cameraStatus === 1)
+                    camChange(0);
+                break;
+            case "q":
+            //removeMusilage();
             default:
                 return; // Quit when this doesn't handle the key event.
         }
@@ -520,3 +590,32 @@ function control() {
 }
 
 control();
+
+// Debug
+
+const guiOptions = {
+    orbitControl: false
+}
+
+const gui = new dat.GUI()
+
+const cameraGui = gui.addFolder("Camera Settings");
+cameraGui.add(camera.position, "x", -10, 10).name("Position X").listen();
+cameraGui.add(camera.position, "y", -10, 10).name("Position Y").listen();
+cameraGui.add(camera.position, "z", -10, 10).name("Position Z").listen();
+cameraGui.add(guiOptions, "orbitControl").name("Orbit Control").listen().onChange(function () {
+    controls.enabled === false ? controls.enabled = true : controls.enabled = false;
+    controls.enabled === false ? orbitChangeOnClick(false) : orbitChangeOnClick(true);
+});
+cameraGui.open();
+
+function orbitChangeOnClick(bool) {
+    if (bool) {
+        pivot.remove(camera);
+        scene.add(camera);
+    } else {
+        scene.remove(camera);
+        pivot.add(camera);
+        camera.position.set(0, 8.5, -9);
+    }
+}
