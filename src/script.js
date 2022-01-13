@@ -37,18 +37,40 @@ function onTransitionEnd( event ) {
 const canvas = document.querySelector('canvas.webgl')
 
 // Scene
-const scene = new THREE.Scene()
+const scene = new THREE.Scene();
 
 
-    const loader = new THREE.TextureLoader(loadingManager);
-    const texture = loader.load(
-        'image/venice_sunset_4k.exr',
-        () => {
-            const rt = new THREE.WebGLCubeRenderTarget(texture.image.height);
-            rt.fromEquirectangularTexture(renderer, texture);
-            scene.background = rt.texture;
-        });
+var cubegeo = new THREE.BoxGeometry(1000, 1000, 1000);
+var cube_materials = [
+    new THREE.MeshBasicMaterial({
+        map: new THREE.TextureLoader().load("image/venice/px.png"),
+        side: THREE.DoubleSide,
+    }),
+    new THREE.MeshBasicMaterial({
+        map: new THREE.TextureLoader().load("image/venice/nx.png"),
+        side: THREE.DoubleSide,
+    }),
+    new THREE.MeshBasicMaterial({
+        map: new THREE.TextureLoader().load("image/venice/py.png"),
+        side: THREE.DoubleSide,
+    }),
+    new THREE.MeshBasicMaterial({
+        map: new THREE.TextureLoader().load("image/venice/ny.png"),
+        side: THREE.DoubleSide,
+    }),
+    new THREE.MeshBasicMaterial({
+        map: new THREE.TextureLoader().load("image/venice/pz.png"),
+        side: THREE.DoubleSide,
+    }),
+    new THREE.MeshBasicMaterial({
+        map: new THREE.TextureLoader().load("image/venice/nz.png"),
+        side: THREE.DoubleSide,
+    }),
+];
 
+var cubeMaterial = new THREE.MeshFaceMaterial(cube_materials);
+var cube = new THREE.Mesh(cubegeo, cubeMaterial);
+scene.add(cube);
 
 // Objects
 
@@ -150,6 +172,8 @@ const gltfLoader = new GLTFLoader(loadingManager);
 gltfLoader.setDRACOLoader(dracoLoader)
 
 loadMap();
+fish1Loader(0,5);
+fish1Loader(10, 2);
 
 const fishGroup = new Group;
 let box;
@@ -208,7 +232,7 @@ window.addEventListener('resize', () => {
 /**
  * Camera
  */
-const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 1000);
 let cameraPos = new Vector3(0, 5.5, -3.5);
 camera.position.set(cameraPos.x, cameraPos.y, cameraPos.z);
 //camera.position.set( 0, 18.5, -5)
@@ -510,7 +534,7 @@ function clearMucilage(){
                 // Font
                 const loader = new FontLoader(loadingManager);
 
-                loader.load('martines-italic.json', function (font) {
+                loader.load('font/martines-italic.json', function (font) {
 
                     const mucilageText = new TextGeometry('Mucilage Cleaning Simulator\n        Congratulations', {
                         font: font,
@@ -816,6 +840,8 @@ function shipLoader() {
             ship.scene.position.multiplyScalar(-1);
             scene.add(pivot);
             pivot.add(ship.scene);
+            pivot.position.set(game2worldCoordX(1), 0, game2worldCoordZ(17));
+            pivot.rotateY(Math.PI / 180 * 180);
         })
 }
 
@@ -879,17 +905,7 @@ function rock1x1Loader1(x1, z1) {
         }
     )
 }
-function rock1x1Loader2(x1, z1) {
-    gltfLoader.load(
-        "objects/barrel1x1.glb", function (barrel) {
 
-            barrel.scene.position.set(game2worldCoordX(x1), 3, game2worldCoordZ(z1));
-
-            barrel.scene.scale.set(0.5, 0.3, 0.7);
-            scene.add(barrel.scene);
-        }
-    )
-}
 function rock2x2Loader1(x1, x2, z1, z2) {
     gltfLoader.load(
         "objects/island2x2.glb", function (island) {
